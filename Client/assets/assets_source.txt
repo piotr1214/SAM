@@ -1,0 +1,6 @@
+Player assets from https://www.gameart2d.com/freebies.html under Creative Common Zero (CC0) License
+
+Wall sprites created from textures on: http://www.benkyoustudio.com/Textures/TexturesBrick/
+
+Explosion sprite made using explosion generator: http://explosiongenerator.com/
+

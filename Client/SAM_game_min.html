@@ -1,0 +1,613 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Multiplayer Game</title>
+</head>
+<body>
+  <!-- Include latest version of PIXI.js from the web -->
+  <!-- <script src="https://pixijs.download/release/pixi.min.js"></script> -->
+
+  <!-- OR Include PIXI localy (v4.6.2) -->
+  <script src="pixi.js/pixi.js"></script>
+    <script>
+
+      var rAFID;
+      var playerArray = new Array()
+      var projectilesArray = new Array();
+      var scoreArray = new Array();
+      var scoreDisplayMessages = new Array();
+      var wallArray = new Array();
+      var explosionsArray = new Array();
+
+      var webSocket;
+      var previousTime = 0;
+      var whichPlayerAmI = 0;
+
+      var isInited = false;  //??????????????????
+
+      var canShoot = true;
+      var playerMoveLeft, playerMoveRight, playerMoveUp, playerMoveDown;
+      var projectileShootLeft, projectileShootRight, projectileShootUp, projectileShootDown;
+
+      var app;
+
+
+      var wsUri = "ws://10.211.55.3:8090"; //?????????
+      var packet_init = {  //????????
+          "packetStatus": "init",
+          "state": "isReady"
+      };
+
+    var packet_game = {  //????????????
+        "packetStatus": "game",
+        "id": 0,
+        "positionPlayer": {"x": 0, "y": 0},
+        "positionBullet": {"x": 0, "y": 0}
+    };
+
+      function init()
+      {
+        initWebSocket();
+
+        app = new PIXI.Application(800, 800, {backgroundColor : 0x1099bb});
+        document.body.appendChild(app.renderer.view);
+
+        setUpScores();
+        setUpKeyboard();
+        setUpSprites();
+
+        rAFID = requestAnimationFrame(GameLoop)
+      }
+//??????????????  START do 178!
+       function initWebSocket()
+    {
+        websocket = new WebSocket(wsUri);
+
+        websocket.addEventListener("open", onOpen, false);
+        websocket.addEventListener("close", onClose, false);
+        websocket.addEventListener("message", onMessage, false);
+        websocket.addEventListener("error", onError, false);
+    }
+
+    //Websocket connection was successfully opened
+    function onOpen(evt)
+    {
+        writeToConsole("CONNECTED");
+        var encoded = JSON.stringify(packet_init);
+
+        //!!!WARNING!!! infinite loop of messages imminent - it should be obvious why
+        doSend(encoded);
+        writeToConsole("send init");
+    }
+
+    //Websocket connection was closed
+    function onClose(evt)
+    {
+        writeToConsole("DISCONNECTED");
+    }
+
+    //Recieved reply from the server
+    function onMessage(evt)
+    {
+        var obj;
+
+        //Check if received packet is JSON data
+        try {
+            obj = JSON.parse(evt.data)
+
+            if (obj.packetStatus == "init"){
+                whichPlayerAmI = obj.id;
+                isInited = true
+            }else if (obj.packetStatus == "game"){
+            	console.log('game')
+            	for (i=0; i<4; i++){
+                	var player = obj.players[i];
+                	if (player.id != whichPlayerAmI){
+                		playerArray[i].x = player.positionPlayer.x;
+                		playerArray[i].y = player.positionPlayer.y;
+
+                		projectilesArray[i].x = player.positionBullet.x;
+                		projectilesArray[i].y = player.positionBullet.y;
+                	}
+                	scoreArray[i] = player.score
+                }
+            }else if (obj.packetStatus == "end"){
+            	console.log("end game");
+            }
+
+        } catch (e) {
+            writeToConsole("Error in parsing - probably not JSON")
+        }
+    }
+
+    //Error occured
+    function onError(evt)
+    {
+        writeToConsole(evt.data);
+    }
+
+    //Sent something to websocket server
+    function doSend(message)
+    {
+        //writeToConsole("SENT: " + message);
+        websocket.send(message);
+    }
+
+    //Write the message to the console
+    function writeToConsole(message)
+    {
+        console.log(message);
+    }
+
+    //run the function only after the whole page has been loaded
+    window.addEventListener("load", init, false);
+
+
+    function sendMyPosition(){
+
+      		packet_game.positionPlayer.x = playerArray[whichPlayerAmI].x;
+      		packet_game.positionPlayer.y = playerArray[whichPlayerAmI].y;
+
+      		packet_game.positionBullet.x = projectilesArray[whichPlayerAmI].x;
+      		packet_game.positionBullet.y = projectilesArray[whichPlayerAmI].y;
+
+      		packet_game.id = whichPlayerAmI;
+
+      		var encoded = JSON.stringify(packet_game);
+      		doSend(encoded);
+      }
+
+//!!!!!!!????? KONIEC
+      //Main game loop of the program
+      //Do all the logic here
+      function GameLoop(timestamp) {
+
+        var nowTime = window.performance.now();
+        var delta = nowTime - previousTime;
+
+		if (isInited){  //????????????????? if
+			sendMyPosition();
+		}
+        updateCollisions();
+        updatePositions();
+
+        updateScores();
+
+        requestAnimationFrame(GameLoop);
+        previousTime = window.performance.now();
+      }
+
+
+    //run the function only after the whole page has been loaded
+    window.addEventListener("load", init, false);
+
+    function setUpScores()
+    {
+      for( i=0; i< 4; i++)
+        {
+            scoreArray[i] = 0;
+            scoreDisplayMessages[i] = new PIXI.Text("P" + i + ": " + scoreArray[i],
+                      {fontFamily: "Arial", fontSize: 32, fill: "white"});
+            scoreDisplayMessages[i].position.set((i* (0.25) * app.renderer.width),0 );
+            app.stage.addChild(scoreDisplayMessages[i]);
+        }
+    }
+
+    function setUpSprites()
+    {
+      // create a new Sprite from an image path
+         playerArray.push(PIXI.Sprite.fromImage('assets/Player_1.png'));
+         playerArray.push(PIXI.Sprite.fromImage('assets/Player_2.png'));
+         playerArray.push(PIXI.Sprite.fromImage('assets/Player_3.png'));
+         playerArray.push(PIXI.Sprite.fromImage('assets/Player_4.png'));
+
+         projectilesArray.push(PIXI.Sprite.fromImage('assets/projectile.png'));
+         projectilesArray.push(PIXI.Sprite.fromImage('assets/projectile.png'));
+         projectilesArray.push(PIXI.Sprite.fromImage('assets/projectile.png'));
+         projectilesArray.push(PIXI.Sprite.fromImage('assets/projectile.png'));
+
+         wallArray.push(PIXI.Sprite.fromImage('assets/wall.png'));
+         wallArray.push(PIXI.Sprite.fromImage('assets/wall_2.png'));
+         wallArray.push(PIXI.Sprite.fromImage('assets/wall.png'));
+         wallArray.push(PIXI.Sprite.fromImage('assets/wall_2.png'));
+
+         explosionsArray.push(PIXI.Sprite.fromImage('assets/explosion.png'))
+         explosionsArray.push(PIXI.Sprite.fromImage('assets/explosion.png'))
+
+
+         for (i = 0; i< wallArray.length; i++)
+         {
+           app.stage.addChild(wallArray[i]);
+           wallArray[i].x = app.renderer.width/4 * i + (app.renderer.width/4 - 64); //TODO: remove magic number (64) - placeholder, PIXI.loader does not work properly right now
+           wallArray[i].y = app.renderer.height/4 * i  +(app.renderer.height/4 - 64); //TODO: remove magic number (64) - placeholder, PIXI.loader does not work properly right now
+         }
+
+         for(i=0; i< explosionsArray.length; i++)
+         {
+           app.stage.addChild(explosionsArray[i]);
+           explosionsArray[i].vx = 0;
+           explosionsArray[i].vy = 0;
+           explosionsArray[i].x = i*200 + app.renderer.width;
+           explosionsArray[i].y = i*200 + app.renderer.height;
+         }
+
+        // 4 players and 4 bullets - simplification
+         for ( i=0; i<4; i++)
+         {
+           app.stage.addChild(playerArray[i]);
+           playerArray[i].vx = 0;
+           playerArray[i].vy = 0;
+
+           app.stage.addChild(projectilesArray[i]);
+           projectilesArray[i].vx = 0;
+           projectilesArray[i].vy = 0;
+           projectilesArray[i].x = i * -100 - 100;
+           projectilesArray[i].y = i * -100 - 100;
+         }
+
+         playerArray[0].x = app.renderer.width / 4;
+         playerArray[0].y = app.renderer.height / 4;
+
+         playerArray[1].x = app.renderer.width * 3/4;
+         playerArray[1].y = app.renderer.height / 4;
+
+         playerArray[2].x = app.renderer.width / 4;
+         playerArray[2].y = app.renderer.height * 3/4;
+
+         playerArray[3].x = app.renderer.width * 3/4;
+         playerArray[3].y = app.renderer.height * 3/4;
+    }
+
+    function setUpKeyboard() {
+       playerMoveLeft = keyboard(65);
+         playerMoveRight = keyboard(68);
+         playerMoveUp = keyboard(87);
+         playerMoveDown = keyboard(83);
+
+         projectileShootLeft = keyboard(74);
+         projectileShootRight = keyboard(76);
+         projectileShootUp = keyboard(73);
+         projectileShootDown = keyboard(75);
+
+
+         projectileShootLeft.press = function()
+         {
+             shootProjectile('left');
+         }
+
+         projectileShootRight.press = function()
+         {
+           shootProjectile('right');
+
+         }
+
+         projectileShootUp.press = function()
+         {
+           shootProjectile('up');
+         }
+
+         projectileShootDown.press = function()
+         {
+           shootProjectile('down');
+
+         }
+
+        //Right
+        playerMoveRight.press = function()
+        {
+          if(playerArray[whichPlayerAmI].x < app.renderer.width - playerArray[whichPlayerAmI].width )
+          {
+            playerArray[whichPlayerAmI].vx = 5;
+            playerArray[whichPlayerAmI].vy = 0;
+          }
+
+        };
+        playerMoveRight.release = function() {
+          if (!playerMoveLeft.isDown &&  playerArray[whichPlayerAmI].vy === 0) {
+             playerArray[whichPlayerAmI].vx = 0;
+          }
+        };
+
+      //Left
+        playerMoveLeft.press = function() {
+
+          if(playerArray[whichPlayerAmI].x > 0)
+          {
+            playerArray[whichPlayerAmI].vx = -5;
+            playerArray[whichPlayerAmI].vy = 0;
+          }
+
+        };
+
+        //Left
+        playerMoveLeft.release = function() {
+          if (!playerMoveRight.isDown &&  playerArray[whichPlayerAmI].vy === 0) {
+             playerArray[whichPlayerAmI].vx = 0;
+          }
+        };
+
+        //Up
+        playerMoveUp.press = function() {
+          playerArray[whichPlayerAmI].vy = -5;
+          playerArray[whichPlayerAmI].vx = 0;
+        };
+        playerMoveUp.release = function() {
+          if (!playerMoveDown.isDown && playerArray[whichPlayerAmI].vx === 0) {
+            playerArray[whichPlayerAmI].vy = 0;
+          }
+        };
+
+        //Down
+        playerMoveDown.press = function() {
+          playerArray[whichPlayerAmI].vy = 5;
+          playerArray[whichPlayerAmI].vx = 0;
+        };
+        playerMoveDown.release = function() {
+          if (!playerMoveUp.isDown && playerArray[whichPlayerAmI].vx === 0) {
+            playerArray[whichPlayerAmI].vy = 0;
+          }
+        };
+    }
+
+    function updatePositions()
+    {
+        for(i=0; i< playerArray.length; i++)
+        {
+
+          var player = playerArray[i];
+          player.x += player.vx;
+          player.y += player.vy;
+
+        }
+
+        for (i = 0; i < projectilesArray.length; i++ )
+        {
+          var projectile = projectilesArray[i];
+          projectile.x +=projectile.vx;
+          projectile.y +=projectile.vy;
+        }
+    }
+
+
+    function shootProjectile(direction)
+    {
+      if (!canShoot) return;
+      else canShoot = false;
+
+      var projectileSpeed = 10;
+      var projectile = projectilesArray[whichPlayerAmI];
+      var player = playerArray[whichPlayerAmI];
+
+      projectile.x = player.x + player.width/2 -projectile.width/2;
+      projectile.y = player.y + player.height/2 -projectile.height / 2;
+      projectile.vx = 0;
+      projectile.vy = 0;
+
+      switch (direction) {
+        case 'left':
+            projectile.vx = -projectileSpeed;
+          break;
+
+        case 'right':
+            projectile.vx = projectileSpeed;
+
+          break;
+
+        case 'up':
+            projectile.vy = -projectileSpeed;
+          break;
+
+        case 'down':
+            projectile.vy = projectileSpeed;
+          break;
+
+        default:
+          break;
+      }
+
+    }
+
+    function keyboard(keyCode)
+    {
+      var key = {};
+      key.code = keyCode;
+      key.isDown = false;
+      key.isUp = true;
+      key.press = undefined;
+      key.release = undefined;
+      //The `downHandler`
+      key.downHandler = function(event) {
+        if (event.keyCode === key.code) {
+          if (key.isUp && key.press) key.press();
+          key.isDown = true;
+          key.isUp = false;
+        }
+        event.preventDefault();
+      };
+
+      //The `upHandler`
+      key.upHandler = function(event) {
+        if (event.keyCode === key.code) {
+          if (key.isDown && key.release) key.release();
+          key.isDown = false;
+          key.isUp = true;
+        }
+        event.preventDefault();
+      };
+
+      //Attach event listeners
+      window.addEventListener(
+        "keydown", key.downHandler.bind(key), false
+      );
+      window.addEventListener(
+        "keyup", key.upHandler.bind(key), false
+      );
+      return key;
+    }
+
+
+function updateScores()  // ZMIENIONA FUKNCJA ?????????????
+{
+  for( i=0; i< 4; i++)
+        {
+        	if (i == whichPlayerAmI && isInited == true){
+			     	scoreDisplayMessages[i].style.fill = "blue";
+					scoreDisplayMessages[i].text = "Player" + i + ": " + scoreArray[i];
+			   	}
+			else {
+            scoreDisplayMessages[i].text = "P" + i + ": " + scoreArray[i];
+			}
+        }
+}
+
+function updateCollisions()
+{
+  // check out of bounds for player
+  var player = playerArray[whichPlayerAmI];
+  var projectile = projectilesArray[whichPlayerAmI];
+  var resetProjectile = false;
+
+  if (player.x < 0 ) {player.vx = 0; player.x = 0;}
+  if (player.y < 0) {player.vy = 0; player.y = 0;}
+
+  if (player.x > app.renderer.width - player.width) {player.vx = 0; player.x = app.renderer.width - player.width; }
+  if (player.y > app.renderer.height - player.height) { player.vy = 0; player.y = app.renderer.height - player.height; }
+
+  //Check collisions with walls
+  for(i = 0; i< wallArray.length; i++)
+  {
+    if (hitTestRectangle(player,wallArray[i]))
+    {
+
+      if(player.vx > 0)
+      {
+        player.x -=5;
+        player.vx = 0;
+      }
+      else if (player.vx < 0)
+      {
+        player.x +=5;
+        player.vx = 0;
+      }
+
+
+      if (player.vy > 0 )
+      {
+        player.y -=5;
+        player.vy = 0;
+      }
+      else if (player.vy < 0){
+        player.y +=5;
+        player.vy = 0;
+      }
+
+    }
+  }
+
+
+  //check projectile out of bounds
+  if( (projectile.x + projectile.width) < 0 ||  (projectile.y + projectile.height) < 0 ||
+      projectile.x > app.renderer.width || projectile.y > app.renderer.height )
+      {
+        resetProjectile =true;
+      }
+
+  //check projectile collisions with walls
+  for(i = 0; i< wallArray.length; i++)
+  {
+    if(hitTestRectangle(projectile, wallArray[i]))
+    {
+      resetProjectile = true;
+    }
+  }
+
+  //check projectile collisions with players
+  for(i = 0; i < playerArray.length; i++ )
+  {
+    if (hitTestRectangle(projectile, playerArray[i]))
+    {
+      if (!(i == whichPlayerAmI))
+      {
+       // scoreArray[whichPlayerAmI] ++;
+        resetProjectile = true;
+      }
+    }
+  }
+
+  //Check projectile collisions with each explosions
+  //CALCULATING EXPLOSIONS POSITIONS AND LASTING TIME HAS TO BE DONE ON THE SERVER
+  for(i=0; i < explosionsArray.length; i++)
+  {
+    if (hitTestRectangle(projectile, explosionsArray[i])){
+      resetProjectile = true;
+    }
+  }
+
+  if(resetProjectile)
+  {
+    projectile.vx = 0;
+    projectile.vy = 0;
+
+    projectile.x = whichPlayerAmI * -100 - 100;
+    projectile.y = whichPlayerAmI * -100 - 100;
+
+    canShoot = true;
+  }
+}
+
+
+function hitTestRectangle(r1, r2) {
+
+  //Define the variables we'll need to calculate
+  var hit, combinedHalfWidths, combinedHalfHeights, vx, vy;
+
+  //hit will determine whether there's a collision
+  hit = false;
+
+  //Find the center points of each sprite
+  r1.centerX = r1.x + r1.width / 2;
+  r1.centerY = r1.y + r1.height / 2;
+  r2.centerX = r2.x + r2.width / 2;
+  r2.centerY = r2.y + r2.height / 2;
+
+  //Find the half-widths and half-heights of each sprite
+  r1.halfWidth = r1.width / 2;
+  r1.halfHeight = r1.height / 2;
+  r2.halfWidth = r2.width / 2;
+  r2.halfHeight = r2.height / 2;
+
+  //Calculate the distance vector between the sprites
+  vx = r1.centerX - r2.centerX;
+  vy = r1.centerY - r2.centerY;
+
+  //Figure out the combined half-widths and half-heights
+  combinedHalfWidths = r1.halfWidth + r2.halfWidth;
+  combinedHalfHeights = r1.halfHeight + r2.halfHeight;
+
+  //Check for a collision on the x axis
+  if (Math.abs(vx) < combinedHalfWidths) {
+
+    //A collision might be occuring. Check for a collision on the y axis
+    if (Math.abs(vy) < combinedHalfHeights) {
+
+      //There's definitely a collision happening
+      hit = true;
+    } else {
+
+      //There's no collision on the y axis
+      hit = false;
+    }
+  } else {
+
+    //There's no collision on the x axis
+    hit = false;
+  }
+
+  //`hit` will be either `true` or `false`
+  return hit;
+};
+
+  </script>
+</body>
+</html>

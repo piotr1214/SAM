@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" /> 
+
+    <style type="text/css">
+    body {
+        margin: 0;
+        height: 100%;
+    }
+    </style>
+
+    <script type="text/javascript">
+    "use strict";    
+    //Place global variables here
+
+    // var wsUri = "ws://demos.kaazing.com/echo";
+    var wsUri = "ws://127.0.0.1:8070";
+
+    var output;
+    var websocket;
+
+
+    function init () 
+    {
+        initWebSocket();
+    }
+
+
+    function initWebSocket()
+    {
+        websocket = new WebSocket(wsUri);
+
+        websocket.addEventListener("open", onOpen, false);
+        websocket.addEventListener("close", onClose, false);
+        websocket.addEventListener("message", onMessage, false);
+        websocket.addEventListener("error", onError, false);
+
+    }
+
+    //Websocket connection was successfully opened
+    function onOpen(evt)
+    {
+        writeToConsole("CONNECTED");
+    }
+
+    //Websocket connection was closed
+    function onClose(evt)
+    {
+        writeToConsole("DISCONNECTED");
+    }
+
+    //Recieved reply from the server
+    function onMessage(evt)
+    {
+        
+        writeToConsole(evt.data);
+        var obj;
+        
+        //Check if received packet is JSON data
+        try {
+            obj = JSON.parse(evt.data)
+            
+            //accessing fields in the encoded object
+            if(obj.boolean == true) {
+                writeToConsole(obj)
+            }
+            else {
+                writeToConsole("False")
+            }
+
+            //send back the message - modified
+            for (let index = 0; index < obj.int_list.length; index++) {
+                obj.int_list[index] += 1;
+            }   
+            obj.number = 102;
+            obj.text = " T-34 Rudy"
+            var encoded = JSON.stringify(obj)
+            
+            //!!!WARNING!!! infinite loop of messages imminent - it should be obvious why
+            doSend(encoded)
+
+        } catch (e) {
+            writeToConsole("Error in parsing - probably not JSON")
+        }
+    }
+
+    //Error occured
+    function onError(evt)
+    {
+        writeToConsole(evt.data);
+    }
+
+    //Sent something to websocket server
+    function doSend(message)
+    {
+        writeToConsole("SENT: " + message);
+        websocket.send(message);
+    }
+
+    //Write the message to the console
+    function writeToConsole(message)
+    {
+        console.log(message);
+    }
+
+    //run the function only after the whole page has been loaded
+    window.addEventListener("load", init, false); 
+
+    </script>
+</head>
+
+<body>
+</body>
+</html>

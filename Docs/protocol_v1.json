@@ -1,0 +1,64 @@
+//////// From server to client ////////
+
+{
+    "endPacket": false,
+    "explosions": [ 
+       {
+         "positionExplode": {"x": 0,"y":0}
+       },
+       {
+         "positionExplode": {"x": 0,"y":0}
+       }
+      ],
+        "players": [
+      {
+        "id": 0,
+        "positionPlayer": {"x": 0, "y": 0},
+        "positionBullet": {"x": 0, "y": 0},
+        "positionWalls":  {"x": 0, "y": 0},
+        "score": 0
+      },
+      {
+        "id": 1,
+        "positionPlayer": {"x": 0, "y": 0},
+        "positionBullet": {"x": 0, "y": 0},
+        "positionWalls":  {"x": 0, "y": 0},
+        "score": 0
+      },
+      {
+        "id": 2,
+        "positionPlayer": {"x": 0, "y": 0},
+        "positionBullet": {"x": 0, "y": 0},
+        "positionWalls":  {"x": 0, "y": 0},
+        "score": 0
+      },
+      {
+        "id": 3,
+        "positionPlayer": {"x": 0, "y": 0},
+        "positionBullet": {"x": 0, "y": 0},
+        "positionWalls":  {"x": 0, "y": 0},
+        "score": 0
+      }
+    ]
+}
+
+//////// From server to client - init  ////////
+
+{
+  "id": 0,
+}
+
+
+//////// From client to server  ////////
+
+{
+  "id": 0,
+  "positionPlayer": {"x": 0, "y": 0},
+  "positionBullet": {"x": 0, "y": 0}
+}
+
+//////// From client to server - init  ////////
+
+{
+  "state": "isReady"
+}
