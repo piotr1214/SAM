@@ -15,22 +15,19 @@ import ssl
 # using dictionary as a simple example packet holder - easy to modify and JSON-ify
 dataPacket = dict(ID=0, int_list=[1, 2, 3], text='string', number=3.44, boolean=True, none=None)
 
-# ???????????? START do 100!
-
-dataPacket_init = {
+dataInit = {
 	'packetStatus': 'init',
   	'id': 0
 }
-dataPacket_end = {
+dataEnd = {
  	'packetStatus': 'end',
    	'isGameOver': True
  }
 
+xyDict = dict(x=0, y=0)
+playseDict = dict(id=0, positionPlayer=xyDict, positionBullet=xyDict, positionWalls=xyDict, score=0)
 
-dict_xy = dict(x=0, y=0)
-dict_player = dict(id=0, positionPlayer=dict_xy, positionBullet=dict_xy, positionWalls=dict_xy, score=0)
-
-players_size = [{
+playersSize = [{
     'id': 0,
     'height': 100,
     'width': 80
@@ -51,7 +48,7 @@ players_size = [{
 
     }]
 
-dataPacket_game = {
+dataGame = {
 	"packetStatus": "game",
     "explosions": [
        {
@@ -94,10 +91,7 @@ dataPacket_game = {
 }
 
 avaiableIndexes = [0, 1, 2, 3]
-
-endGame = 1
-
-#??????? KONIEC
+endGame = 0
 
 class SimpleEcho(WebSocket):
    def handleMessage(self):
@@ -108,57 +102,49 @@ class SimpleEcho(WebSocket):
 
    def handleClose(self):
       pass
-   def tmp(a): # ????????
+   def tmp(a):
        pass
 
 clients = []
 
-class SimpleGameServer(WebSocket): #????????????? START 209
+class SimpleGameServer(WebSocket): 
       def handleMessage(self):
             for client in clients:
                 decodedPacket = json.loads(self.data)
 
-                if (endGame == 2):
+                if (endGame == 1):
                     print('endGame')
-                    dataPacket_game['packetStatus'] = 'end'
-                    toSend = json.dumps(dataPacket_game)
+                    dataGame['packetStatus'] = 'end'
+                    toSend = json.dumps(dataGame)
                     client.sendMessage(toSend)
                 elif len(clients) >= 4:
-
-
-                #if client != self:
-                    # send back to all clients
-                    toSend = json.dumps(dataPacket_game)
+                    toSend = json.dumps(dataGame)
                     client.sendMessage(toSend)
                 if client == self:
-                #else:
                     if decodedPacket['packetStatus'] == 'init':
                         index = self.id
-                        dataPacket_init['id']=index
-
-                        toSend = json.dumps(dataPacket_init)
+                        dataInit['id']=index
+                        toSend = json.dumps(dataInit)
                         client.sendMessage(toSend)
-
                     elif decodedPacket['packetStatus'] == 'game':
-                        updatePlayersWithPlayer(decodedPacket)
-                        checkIfPlayerWasHited(decodedPacket)
+                        playerUpdate(decodedPacket)
+                        playerShoot(decodedPacket)
 
 
       def handleConnected(self):
             for client in clients:
                 client.sendMessage(u'player ' + self.address[0] + u' - connected')
 
-                # send TEST PACKET
                 encodedPacket = json.dumps(dataPacket)
                 client.sendMessage(encodedPacket)
             self.id = avaiableIndexes[0]
             avaiableIndexes.remove(self.id)
             clients.append(self)
             if len(clients) >= 4:
-                dataPacket_game['players'][0]['score'] = 0
-                dataPacket_game['players'][1]['score'] = 0
-                dataPacket_game['players'][2]['score'] = 0
-                dataPacket_game['players'][3]['score'] = 0
+                dataGame['players'][0]['score'] = 0
+                dataGame['players'][1]['score'] = 0
+                dataGame['players'][2]['score'] = 0
+                dataGame['players'][3]['score'] = 0
 
 
       def handleClose(self):
@@ -169,43 +155,39 @@ class SimpleGameServer(WebSocket): #????????????? START 209
             for client in clients:
                 client.sendMessage(u'player' + self.address[0] + u' - disconnected')
 
-def updatePlayersWithPlayer(data):
+def playerUpdate(data):
 
     playerId = data['id']
-    player = dataPacket_game['players'][playerId]
-
+    player = dataGame['players'][playerId]
     player['positionPlayer']['x'] = data['positionPlayer']['x']
     player['positionPlayer']['y'] = data['positionPlayer']['y']
     player['positionBullet']['x'] = data['positionBullet']['x']
     player['positionBullet']['y'] = data['positionBullet']['y']
 
 
-def checkIfPlayerWasHited(data):
+def playerShoot(data):
     bullet_x = data['positionBullet']['x'] + 32/2
     bullet_y = data['positionBullet']['y'] + 32/2
-
-    players = dataPacket_game['players']
+    players = dataGame['players']
 
     for player in players:
         index = player['id']
-        width = players_size[index]['width']
-        heigth = players_size[index]['height']
+        width = playersSize[index]['width']
+        heigth = playersSize[index]['height']
         x = player['positionPlayer']['x'] + width/2
         y = player['positionPlayer']['y'] + heigth/2
-
 
         if (bullet_y > y - heigth/2 - 32/2  and bullet_y < y + heigth/2 + 32/2 ) and (bullet_x > x - width/2 -32/2 and bullet_x < x + width/2 +32/2):
 
             if data['id'] != player['id']:
                 id = data['id']
-                dataPacket_game['players'][id]['score'] +=1
+                dataGame['players'][id]['score'] +=1
 
-                if dataPacket_game['players'][id]['score'] >= 16:
+                if dataGame['players'][id]['score'] >= 16:
                     print('>5')
                     global  endGame
                     endGame = 2
                     print(endGame)
-#??????? KONIEC
 
 if __name__ == "__main__":
    parser = OptionParser(usage="usage: %prog [options]", version="%prog 1.0")
