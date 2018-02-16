@@ -107,7 +107,7 @@ class SimpleEcho(WebSocket):
 
 clients = []
 
-class SimpleGameServer(WebSocket): 
+class SimpleGameServer(WebSocket):
       def handleMessage(self):
             for client in clients:
                 decodedPacket = json.loads(self.data)
@@ -186,7 +186,7 @@ def playerShoot(data):
                 if dataGame['players'][id]['score'] >= 16:
                     print('>5')
                     global  endGame
-                    endGame = 2
+                    endGame = 1
                     print(endGame)
 
 if __name__ == "__main__":
