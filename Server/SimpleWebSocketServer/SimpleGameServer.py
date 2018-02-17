@@ -113,7 +113,7 @@ class SimpleGameServer(WebSocket):
                 decodedPacket = json.loads(self.data)
 
                 if (endGame == 1):
-                    print('endGame')
+                    print('Game Over!')
                     dataGame['packetStatus'] = 'end'
                     toSend = json.dumps(dataGame)
                     client.sendMessage(toSend)
